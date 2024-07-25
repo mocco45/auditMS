@@ -3,14 +3,15 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.views.decorators.csrf import csrf_exempt
-from .models import mineralsYear, company, minerals
+from .models import mineralsYear, company, minerals,Role
 from .dataprocess import cleanse_and_extract
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from .models import CustomUser
-from .serializers import CustomUserSerializer
+from django.contrib.auth.models import Permission
+from .serializers import PermissionSerializer,UserSerializer,RoleSerializer,MineralYearSerializer,MineralSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework import generics
+from rest_framework import generics,permissions
 
 class RoleListCreateView(generics.ListCreateAPIView):
     queryset = Role.objects.all()
@@ -26,11 +27,29 @@ class PermissionListView(generics.ListAPIView):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+class PermissionCreateView(generics.CreateAPIView):
+    queryset = Permission.objects.all()
+    serializer_class = PermissionSerializer
+    permission_classes = [IsAuthenticated]
 
 class UserCreateView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    permission_classes = (permissions.AllowAny,)
+    
+class MineralYearListView(generics.ListAPIView):
+    queryset = mineralsYear.objects.all()
+    serializer_class = MineralYearSerializer
+    permission_classes = [IsAuthenticated]  # Require authentication
+
+class MineralsListView(generics.ListAPIView):
+    queryset = minerals.objects.all()
+    serializer_class = MineralSerializer
+    permission_classes = [IsAuthenticated]
 
 @csrf_exempt
 @api_view(['POST'])
@@ -78,6 +97,7 @@ def data_for_year(request, year):
     data = list(year_data.values('companie__name', 'mineral__name', 'year', 'value'))
     return JsonResponse(data, safe=False)
 
+
 def data_for_company_and_mineral(request, company_id, mineral_id):
     company_data = mineralsYear.objects.filter(companie_id=company_id, mineral_id=mineral_id)
     data = list(company_data.values('companie__name', 'mineral__name', 'year', 'value'))
@@ -87,3 +107,5 @@ def summary_by_year(request):
     summary = mineralsYear.objects.values('year').annotate(total_value=Sum('value')).order_by('year')
     data = list(summary)
     return JsonResponse(data, safe=False)
+
+
