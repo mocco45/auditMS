@@ -3,15 +3,17 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.views.decorators.csrf import csrf_exempt
-from .models import mineralsYear, company, minerals,Role
+from .models import mineralsYear, company, minerals,Role,UserActionLog
 from .dataprocess import cleanse_and_extract
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated,AllowAny
-from .models import CustomUser
+from .models import CustomUser,company
 from django.contrib.auth.models import Permission
-from .serializers import PermissionSerializer,UserSerializer,RoleSerializer,MineralYearSerializer,MineralSerializer
+from .serializers import PermissionSerializer,UserSerializer,RoleSerializer,MineralYearSerializer,MineralSerializer,CompanySerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework import generics,permissions
+from django.core.paginator import Paginator
+from django.db.models import Q
 
 class RoleListCreateView(generics.ListCreateAPIView):
     queryset = Role.objects.all()
@@ -49,6 +51,11 @@ class MineralYearListView(generics.ListAPIView):
 class MineralsListView(generics.ListAPIView):
     queryset = minerals.objects.all()
     serializer_class = MineralSerializer
+    permission_classes = [IsAuthenticated]
+    
+class CompanyListView(generics.ListAPIView):
+    queryset = company.objects.all()
+    serializer_class = CompanySerializer
     permission_classes = [IsAuthenticated]
 
 @csrf_exempt
@@ -100,12 +107,81 @@ def data_for_year(request, year):
 
 def data_for_company_and_mineral(request, company_id, mineral_id):
     company_data = mineralsYear.objects.filter(companie_id=company_id, mineral_id=mineral_id)
-    data = list(company_data.values('companie__name', 'mineral__name', 'year', 'value'))
-    return JsonResponse(data, safe=False)
+    structured_data = {}
+
+    for entry in company_data:
+        company_name = entry.companie.name
+        year = entry.year
+        mineral_name = entry.mineral.name
+        value = entry.value
+
+        if company_name not in structured_data:
+            structured_data[company_name] = {}
+
+        if year not in structured_data[company_name]:
+            structured_data[company_name][year] = {}
+
+        if mineral_name not in structured_data[company_name][year]:
+            structured_data[company_name][year][mineral_name] = []
+
+        structured_data[company_name][year][mineral_name].append(value)
+
+    return JsonResponse(structured_data, safe=False)
+
+def data_for_company_all_minerals(request, company_id):
+    company_data = mineralsYear.objects.filter(companie_id=company_id)
+    structured_data = {}
+
+    for entry in company_data:
+        company_name = entry.companie.name
+        year = entry.year
+        mineral_name = entry.mineral.name
+        value = entry.value
+
+        if company_name not in structured_data:
+            structured_data[company_name] = {}
+
+        if year not in structured_data[company_name]:
+            structured_data[company_name][year] = {}
+
+        if mineral_name not in structured_data[company_name][year]:
+            structured_data[company_name][year][mineral_name] = []
+
+        structured_data[company_name][year][mineral_name].append(value)
+
+    return JsonResponse(structured_data, safe=False)
 
 def summary_by_year(request):
     summary = mineralsYear.objects.values('year').annotate(total_value=Sum('value')).order_by('year')
     data = list(summary)
     return JsonResponse(data, safe=False)
+
+def list_companies(request):
+    search_query = request.GET.get('search', '')
+    page = request.GET.get('page', 1)
+    per_page = request.GET.get('per_page', 10)
+
+    companies = company.objects.filter(Q(name__icontains=search_query) | Q(description__icontains=search_query))
+    paginator = Paginator(companies, per_page)
+    paginated_companies = paginator.get_page(page)
+
+    data = {
+        'results': [{"id": company.id, "name": company.name, "description": company.description} for company in paginated_companies],
+        'page': paginated_companies.number,
+        'pages': paginator.num_pages,
+        'total': paginator.count,
+    }
+    return JsonResponse(data, safe=False)
+
+@permission_classes([IsAuthenticated])
+def user_action_logs(request):
+    logs = UserActionLog.objects.filter(user=request.user)
+    data = [{
+        'action': log.action,
+        'timestamp': log.timestamp,
+        'description': log.description
+    } for log in logs]
+    return JsonResponse({'status': 'success', 'logs': data})
+
 
 

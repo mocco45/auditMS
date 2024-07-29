@@ -1,6 +1,6 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import CustomUser, Role, mineralsYear, minerals
+from .models import CustomUser, Role, mineralsYear, minerals, company
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
    
@@ -71,5 +71,10 @@ class MineralYearSerializer(serializers.ModelSerializer):
 class MineralSerializer(serializers.ModelSerializer):
     class Meta:
         model = minerals
+        fields = '__all__'
+        
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = company
         fields = '__all__'
         
