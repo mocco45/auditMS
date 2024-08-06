@@ -24,7 +24,5 @@ def cleanse_and_extract(file):
     
     df_cleaned = df_cleaned.drop([0, 1]).reset_index(drop=True)
     
-    # print(df_cleaned)
-    # raise Exception('this is debug')
     
     return df_cleaned, main_title

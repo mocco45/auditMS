@@ -11,9 +11,12 @@ from .models import CustomUser,company
 from django.contrib.auth.models import Permission
 from .serializers import PermissionSerializer,UserSerializer,RoleSerializer,MineralYearSerializer,MineralSerializer,CompanySerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework import generics,permissions
+from rest_framework import generics,permissions,pagination
+from rest_framework.response import Response
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import JsonResponse
+from .models import mineralsYear
 
 class RoleListCreateView(generics.ListCreateAPIView):
     queryset = Role.objects.all()
@@ -46,17 +49,29 @@ class MyTokenObtainPairView(TokenObtainPairView):
 class MineralYearListView(generics.ListAPIView):
     queryset = mineralsYear.objects.all()
     serializer_class = MineralYearSerializer
-    permission_classes = [IsAuthenticated]  # Require authentication
+    permission_classes = [IsAuthenticated]  
 
 class MineralsListView(generics.ListAPIView):
     queryset = minerals.objects.all()
     serializer_class = MineralSerializer
     permission_classes = [IsAuthenticated]
     
+class CompanyPagination(pagination.PageNumberPagination):
+    page_size = 10
+
+    def get_paginated_response(self, data):
+        return Response({
+            'companies': data,
+            'total': self.page.paginator.count,
+            'page': self.page.number,
+            'pages': self.page.paginator.num_pages
+        })
+    
 class CompanyListView(generics.ListAPIView):
     queryset = company.objects.all()
     serializer_class = CompanySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CompanyPagination
 
 @csrf_exempt
 @api_view(['POST'])
@@ -151,9 +166,9 @@ def data_for_company_all_minerals(request, company_id):
 
     return JsonResponse(structured_data, safe=False)
 
-def summary_by_year(request):
-    summary = mineralsYear.objects.values('year').annotate(total_value=Sum('value')).order_by('year')
-    data = list(summary)
+def summary_by_year(request, company_id):
+    summary = mineralsYear.objects.filter(companie_id=company_id).values('year').annotate(total_value=Sum('value')).order_by('year')
+    data = [{"year": item['year'], "total_value": int(item['total_value'])} for item in summary]
     return JsonResponse(data, safe=False)
 
 def list_companies(request):
@@ -183,5 +198,37 @@ def user_action_logs(request):
     } for log in logs]
     return JsonResponse({'status': 'success', 'logs': data})
 
+
+def summary_by_year_and_company(request, company_id):
+
+    total_values = mineralsYear.objects.filter(companie_id=company_id).values('year').annotate(total_value=Sum('value'))
+
+    total_values_dict = {item['year']: item['total_value'] for item in total_values}
+
+    minerals = mineralsYear.objects.filter(companie_id=company_id).values('year', 'mineral__name').annotate(
+        mineral_value=Sum('value')
+    ).order_by('year', 'mineral__name')
+
+    data = {}
+    for item in minerals:
+        year = item['year']
+        total_value = total_values_dict.get(year, 1)  # Use 1 as default to avoid division by zero
+        contribution = (item['mineral_value'] / total_value) * 100
+        if year not in data:
+            data[year] = []
+        data[year].append({
+            "mineral": item['mineral__name'],
+            "value": item['mineral_value'],
+            "contribution": round(contribution, 2)
+        })
+
+    # To ensure the sum of contributions is exactly 100%, we can normalize the contributions
+    for year, minerals in data.items():
+        total_contribution = sum(item['contribution'] for item in minerals)
+        if total_contribution != 100:
+            for item in minerals:
+                item['contribution'] = round(item['contribution'] * 100 / total_contribution, 2)
+
+    return JsonResponse(data, safe=False)
 
 
