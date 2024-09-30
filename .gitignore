@@ -1,0 +1,4 @@
+wvenv/
+gst_venv/
+.env
+__pycache__/

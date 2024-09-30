@@ -3,40 +3,26 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.views.decorators.csrf import csrf_exempt
-from .models import mineralsYear, company, minerals,Role,UserActionLog
+from .models import mineralsYear, company, minerals,UserActionLog
 from .dataprocess import cleanse_and_extract
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated,AllowAny
 from .models import CustomUser,company
 from django.contrib.auth.models import Permission
-from .serializers import PermissionSerializer,UserSerializer,RoleSerializer,MineralYearSerializer,MineralSerializer,CompanySerializer
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework import generics,permissions,pagination
+from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from .serializers import UserSerializer,MineralYearSerializer,MineralSerializer,CompanySerializer
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
+from rest_framework.views import APIView
+from rest_framework import generics,permissions,pagination,status
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
-from .models import mineralsYear
+from .models import mineralsYear, CustomUser
+from django.contrib.auth.models import Group
 
-class RoleListCreateView(generics.ListCreateAPIView):
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class RoleDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class PermissionListView(generics.ListAPIView):
-    queryset = Permission.objects.all()
-    serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-class PermissionCreateView(generics.CreateAPIView):
-    queryset = Permission.objects.all()
-    serializer_class = PermissionSerializer
-    permission_classes = [IsAuthenticated]
 
 class UserCreateView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -45,8 +31,17 @@ class UserCreateView(generics.CreateAPIView):
 
 class MyTokenObtainPairView(TokenObtainPairView):
     permission_classes = (permissions.AllowAny,)
+
+class VerifyTokenView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        # If the request reaches here, the token is valid
+        return Response({"message": "Token is valid"}, status=200)
     
-class MineralYearListView(generics.ListAPIView):
+class MineralYearListView(generics.ListAPIView, PermissionRequiredMixin):
+    permission_required = 'user'
     queryset = mineralsYear.objects.all()
     serializer_class = MineralYearSerializer
     permission_classes = [IsAuthenticated]  
@@ -119,7 +114,12 @@ def data_for_year(request, year):
     data = list(year_data.values('companie__name', 'mineral__name', 'year', 'value'))
     return JsonResponse(data, safe=False)
 
+class CustomPagination(pagination.PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'per_page'
+    max_page_size = 100
 
+@permission_required('can view minerals year')
 def data_for_company_and_mineral(request, company_id, mineral_id):
     company_data = mineralsYear.objects.filter(companie_id=company_id, mineral_id=mineral_id)
     structured_data = {}
@@ -141,7 +141,22 @@ def data_for_company_and_mineral(request, company_id, mineral_id):
 
         structured_data[company_name][year][mineral_name].append(value)
 
-    return JsonResponse(structured_data, safe=False)
+        flattened_data = []
+    for company, years in structured_data.items():
+        for year, minerals in years.items():
+            flattened_data.append({
+                "company": company,
+                "year": year,
+                "minerals": minerals
+            })
+
+    # Apply pagination using DRF's PageNumberPagination
+    paginator = CustomPagination()
+    paginated_data = paginator.paginate_queryset(flattened_data, request)
+
+    # Return paginated response
+    return paginator.get_paginated_response(paginated_data)
+
 
 def data_for_company_all_minerals(request, company_id):
     company_data = mineralsYear.objects.filter(companie_id=company_id)
@@ -230,5 +245,23 @@ def summary_by_year_and_company(request, company_id):
                 item['contribution'] = round(item['contribution'] * 100 / total_contribution, 2)
 
     return JsonResponse(data, safe=False)
+
+@api_view(['POST'])
+def assign_role(request):
+    user_id = request.data.get('user_id')
+    role_id = request.data.get('role_id')
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        role = Group.objects.get(id=role_id)
+        
+        user.groups.add(role)
+        return Response({"message":"Role assigned successfully"}, status=status.HTTP_200_OK)
+    except CustomUser.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Group.DoesNotExist:
+        return Response({"error": "Role not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    
 
 

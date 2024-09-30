@@ -1,6 +1,6 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import CustomUser, Role, mineralsYear, minerals, company
+from .models import CustomUser, mineralsYear, minerals, company
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
    
@@ -18,16 +18,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         raise serializers.ValidationError({"detail": "Invalid credentials"})
 
-class RoleSerializer(serializers.ModelSerializer):
-    permissions = serializers.SlugRelatedField(
-        many=True,
-        slug_field='codename',
-        queryset=Permission.objects.all()
-    )
-
-    class Meta:
-        model = Role
-        fields = ['id', 'name', 'permissions']
 
 # class CustomUserSerializer(serializers.ModelSerializer):
 #     role = RoleSerializer()
@@ -42,16 +32,7 @@ class RoleSerializer(serializers.ModelSerializer):
 #         role, created = Role.objects.get_or_create(**role_data)
 #         user = CustomUser.objects.create_user(role=role, **validated_data)
 #         return user
-    
-class PermissionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Permission
-        fields = ['id', 'name', 'codename', 'content_type', 'codename']
 
-class PermissionCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Permission
-        fields = ['name', 'codename', 'content_type']
         
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
