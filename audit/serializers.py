@@ -1,10 +1,11 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import CustomUser, mineralsYear, minerals, company
+from .models import mineralsYear, minerals, company
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-   
+
 User = get_user_model()
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -32,30 +33,3 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 #         role, created = Role.objects.get_or_create(**role_data)
 #         user = CustomUser.objects.create_user(role=role, **validated_data)
 #         return user
-
-        
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'photo', 'role', 'password']
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def create(self, validated_data):
-        user = CustomUser.objects.create_user(**validated_data)
-        return user
-    
-class MineralYearSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = mineralsYear
-        fields = '__all__'
-        
-class MineralSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = minerals
-        fields = '__all__'
-        
-class CompanySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = company
-        fields = '__all__'
-        
