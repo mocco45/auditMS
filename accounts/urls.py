@@ -17,4 +17,5 @@ urlpatterns = [
     path("api/users", views.list_user, name="users"),
     path("api/roles", views.list_roles, name="roles"),
     path("api/permissions", views.list_permission, name="permissions"),
+    path("api/user/<int:pk>", views.UserDetailsView.as_view(), name="user"),
 ]

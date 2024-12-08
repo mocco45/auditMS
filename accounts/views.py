@@ -16,6 +16,7 @@ from django.contrib.contenttypes.models import ContentType
 from .serializers import (
     PermissionSerializer,
     RoleSerializer,
+    TokenObtainPairSerializer,
     UserSerializer,
 )
 
@@ -27,6 +28,7 @@ class UserCreateView(generics.CreateAPIView):
 
 
 class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = TokenObtainPairSerializer
     permission_classes = (permissions.AllowAny,)
 
 
@@ -37,6 +39,57 @@ class VerifyTokenView(APIView):
     def post(self, request, *args, **kwargs):
         # If the request reaches here, the token is valid
         return Response({"message": "Token is valid"}, status=200)
+
+
+class UserDetailsView(APIView):
+    def get(self, request, pk):
+        try:
+            user = CustomUser.objects.get(pk=pk)
+            serializer = UserSerializer(user)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    def patch(self, request, pk):
+        try:
+            user = CustomUser.objects.get(pk=pk)
+
+            is_active = request.data.get("is_active")
+
+            if is_active is not None:
+                user.is_active = is_active
+                user.save()
+                return Response(
+                    {"message": "User updated successfully"},
+                    status=status.HTTP_201_CREATED,
+                )
+
+            else:
+                return Response(
+                    {"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    def delete(self, request, pk):
+        try:
+            user = CustomUser.objects.get(pk=pk)
+
+            user.delete()
+            return Response(
+                {"message": "User deleted successfully"}, status=status.HTTP_201_CREATED
+            )
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
 
 @api_view(["POST"])
