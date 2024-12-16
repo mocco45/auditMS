@@ -1,1 +1,0 @@
-import{e as o,z as a}from"./index-RCMvR-QV.js";const n=o("main",{state:()=>({contributions:{}}),actions:{async fetchContributionsByYearAndCompany(r){try{const t=await a.get(`/summary/${r}/`);this.contributions=t.data}catch(t){console.error("Error fetching data:",t)}}}});export{n as u};

@@ -1,4 +1,5 @@
 from os import name
+from traceback import print_tb
 from django.shortcuts import render
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import generics, permissions, status
@@ -19,6 +20,7 @@ from .serializers import (
     TokenObtainPairSerializer,
     UserSerializer,
 )
+from django.core.exceptions import ObjectDoesNotExist
 
 
 class UserCreateView(generics.CreateAPIView):
@@ -59,19 +61,32 @@ class UserDetailsView(APIView):
             user = CustomUser.objects.get(pk=pk)
 
             is_active = request.data.get("is_active")
+            user_permission = request.data.get("user_permissions")
 
             if is_active is not None:
                 user.is_active = is_active
-                user.save()
-                return Response(
-                    {"message": "User updated successfully"},
-                    status=status.HTTP_201_CREATED,
-                )
+
+            if user_permission is not None:
+                user_group = user.groups.first()
+
+            if user_group:
+                if isinstance(user_permission, str):
+                    user_permission = [user_permission]
+
+                user_permissions = Permission.objects.filter(name__in=user_permission)
+                user_group.permissions.set(user_permissions)
+                user_group.save()
 
             else:
                 return Response(
                     {"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST
                 )
+
+            user.save()
+            return Response(
+                {"message": "User updated successfully"},
+                status=status.HTTP_201_CREATED,
+            )
 
         except CustomUser.DoesNotExist:
             return Response(
