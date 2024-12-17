@@ -69,18 +69,20 @@ class UserDetailsView(APIView):
             if user_permission is not None:
                 user_group = user.groups.first()
 
-            if user_group:
-                if isinstance(user_permission, str):
-                    user_permission = [user_permission]
+                if user_group:
+                    if isinstance(user_permission, str):
+                        user_permission = [user_permission]
 
-                user_permissions = Permission.objects.filter(name__in=user_permission)
-                user_group.permissions.set(user_permissions)
-                user_group.save()
+                    user_permissions = Permission.objects.filter(
+                        name__in=user_permission
+                    )
+                    user_group.permissions.set(user_permissions)
+                    user_group.save()
 
-            else:
-                return Response(
-                    {"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST
-                )
+                else:
+                    return Response(
+                        {"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST
+                    )
 
             user.save()
             return Response(
@@ -197,6 +199,7 @@ def assign_role(request):
         user = CustomUser.objects.get(id=user_id)
         role = Group.objects.get(id=role_id)
 
+        user.groups.clear()
         user.groups.add(role)
         return Response(
             {"message": "Role assigned successfully"}, status=status.HTTP_200_OK
