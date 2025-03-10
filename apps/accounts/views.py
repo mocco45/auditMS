@@ -1,6 +1,4 @@
-from os import name
-from traceback import print_tb
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import generics, permissions, status
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -9,9 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
-from accounts.decorators import groups_required
+from apps.accounts.decorators import groups_required
 from .models import CustomUser
-from companies.models import company, minerals, mineralsYear
+from apps.companies.models import company, minerals, mineralsYear
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from .serializers import (
@@ -20,7 +18,6 @@ from .serializers import (
     TokenObtainPairSerializer,
     UserSerializer,
 )
-from django.core.exceptions import ObjectDoesNotExist
 
 
 class UserCreateView(generics.CreateAPIView):
@@ -64,6 +61,12 @@ class UserDetailsView(APIView):
             user_permission = request.data.get("user_permissions")
 
             if is_active is not None:
+                if user.id == self.request.user.id:
+                    return Response(
+                        {"error": "You can't change state of your account"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 user.is_active = is_active
 
             if user_permission is not None:
@@ -97,11 +100,16 @@ class UserDetailsView(APIView):
 
     def delete(self, request, pk):
         try:
-            user = CustomUser.objects.get(pk=pk)
-
+            user = get_object_or_404(CustomUser, pk=pk)
+            if user.id == self.request.user.id:
+                return Response(
+                    {"error": "You can't delete your own account"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             user.delete()
             return Response(
-                {"message": "User deleted successfully"}, status=status.HTTP_201_CREATED
+                {"message": "User deleted successfully"},
+                status=status.HTTP_204_NO_CONTENT,
             )
         except CustomUser.DoesNotExist:
             return Response(

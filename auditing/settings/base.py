@@ -11,14 +11,16 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import os
+import environ
 from pathlib import Path
-from decouple import config
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env()
 
+env.read_env(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -28,7 +30,7 @@ SECRET_KEY = "django-insecure-6)cd947u*vozj^qpqdnz=4yti^if2485m@m^vgoj$dn1@!p1n0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["192.168.0.20", "127.0.0.1"]
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -43,9 +45,9 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
-    "audit",
-    "accounts",
-    "companies",
+    "apps.audit",
+    "apps.accounts",
+    "apps.companies",
 ]
 
 AUTH_USER_MODEL = "accounts.CustomUser"
@@ -124,11 +126,11 @@ WSGI_APPLICATION = "auditing.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USER"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
     }
 }
 

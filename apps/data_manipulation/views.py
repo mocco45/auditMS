@@ -6,7 +6,7 @@ from rest_framework import pagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .dataprocess import cleanse_and_extract
-from companies.models import company, minerals, mineralsYear
+from apps.companies.models import company, minerals, mineralsYear
 from django.core.paginator import Paginator
 
 

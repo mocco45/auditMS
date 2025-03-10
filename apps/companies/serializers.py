@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from companies.models import company, minerals, mineralsYear
+from apps.companies.models import company, minerals, mineralsYear
 
 
 class MineralYearSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from accounts.models import CustomUser
+from apps.accounts.models import CustomUser
 
 
 class UserActionLog(models.Model):
